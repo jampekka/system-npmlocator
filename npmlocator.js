@@ -50,6 +50,9 @@
     return fetchUrl(pkg + "/package.json").then(function(data){
       var main, ref$;
       main = (ref$ = JSON.parse(data).main) != null ? ref$ : 'index';
+      if (main[main.length - 1] === '/') {
+        main += "index";
+      }
       return resolveFile(pkg + "/" + main);
     });
   };
@@ -78,7 +81,7 @@
         parts.pop();
       }
       if (parts.length === 0) {
-        throw "Node module not found";
+        throw "Node module '" + name + "' at '" + path + "' not found";
       }
       return resolveNodeModule(name, joinPath.apply(null, parts));
     });
@@ -94,7 +97,7 @@
   normalizePath = function(path){
     var parts, root;
     parts = path.split('/');
-    root = parts[0];
+    root = parts.shift();
     parts = parts.filter(function(p){
       return p !== '' && p !== '.';
     });
@@ -119,9 +122,12 @@
     return resolveNodeModule(name, dir);
   };
   oldNormalize = System.normalize;
-  System.normalize = function(){
-    var args;
-    args = slice$.call(arguments);
-    return nodeResolve.apply(null, args);
+  System.normalize = function(path, parent){
+    var parts;
+    parent = parent != null ? parent.split("!")[0] : void 8;
+    parts = path.split('!');
+    return nodeResolve(parts[0], parent).then(function(normed){
+      return [normed].concat(parts.slice(1)).join("!");
+    });
   };
 }).call(this);

@@ -11,5 +11,8 @@
     "build": "lsc -c npmlocator.ls"
   },
   "author": "Jami Pekkanen <jami.pekkanen@helsinki.fi>",
-  "license": "Public domain"
+  "license": "Public domain",
+  "dependencies": {
+    "browser-builtins": "^3.3.0"
+  }
 }

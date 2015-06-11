@@ -25,7 +25,11 @@ checkUrl = (url) -> new Promise (accept, reject) ->
 resolvePackage = (pkg) ->
 	fetchUrl pkg + "/package.json"
 	.then (data) ->
+		# TODO: Figure out how to handle the
+		# browser-field nicely
 		main = JSON.parse(data).main ? 'index'
+		if main[*-1] == '/'
+			main += "index"
 		return resolveFile pkg + "/" + main
 
 resolveFileUrl = (url) ->
@@ -52,7 +56,7 @@ resolveNodeModule = (name, path='') ->
 		while parts[*-1] == 'node_modules'
 			parts.pop()
 		if parts.length == 0
-			throw "Node module not found"
+			throw "Node module '#{name}' at '#{path}' not found"
 		resolveNodeModule name, joinPath ...parts
 
 dirname = (path) ->
@@ -64,7 +68,7 @@ dirname = (path) ->
 normalizePath = (path) ->
 	# TODO: Handle ..
 	parts = path.split '/'
-	root = parts[0]
+	root = parts.shift()
 	parts = parts.filter (p) -> p not in ['', '.']
 	parts.unshift root
 	return parts.join '/'
@@ -81,7 +85,11 @@ nodeResolve = (name, parent='') ->
 	resolveNodeModule name, dir
 
 oldNormalize = System.normalize
-System.normalize = (...args) ->
-	return nodeResolve ...args
+System.normalize = (path, parent) ->
+	parent = parent?split("!")[0]
+	parts = path.split '!'
+	nodeResolve parts[0], parent
+	.then (normed) ->
+		[normed].concat(parts.slice(1)).join("!")
 
 
