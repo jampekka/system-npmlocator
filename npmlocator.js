@@ -21,8 +21,9 @@
         return accept(req.responseText);
       };
       req.onerror = function(){
-        reject(req.statusText);
-        return false;
+        var a;
+        a = slice$.call(arguments);
+        return reject(req.statusText);
       };
       req.open('GET', url, true);
       return req.send(null);
@@ -36,10 +37,6 @@
         return accept(req.responseText);
       };
       req.onerror = function(e){
-        window.debugstuff = {
-          e: e,
-          req: req
-        };
         return reject(req.statusText);
       };
       req.open('HEAD', url, true);

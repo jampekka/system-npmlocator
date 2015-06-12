@@ -7,18 +7,14 @@ isFilePath = (name) ->
 fetchUrl = (url) -> new Promise (accept, reject) ->
 	req = new XMLHttpRequest
 	req.onload = -> accept req.responseText
-	req.onerror = -> reject(req.statusText); return false
+	req.onerror = (...a) -> reject(req.statusText)
 	req.open 'GET', url, true
 	req.send null
 
 checkUrl = (url) -> new Promise (accept, reject) ->
 	req = new XMLHttpRequest
 	req.onload = -> accept(req.responseText)
-	req.onerror = (e) ->
-		window.debugstuff =
-			e: e
-			req: req
-		reject(req.statusText)
+	req.onerror = (e) -> reject(req.statusText)
 	req.open 'HEAD', url, true
 	req.send null
 
@@ -101,13 +97,13 @@ builtinsPromise = fetchUrl(joinPath(builtinsPath, 'package.json'))
 	.then (buffer) ->
 		window.Buffer = buffer.Buffer
 
+
 # See http://nodejs.org/docs/v0.4.8/api/all.html#all_Together...
 nodeResolve = (...args) ->
 	orig = Promise.resolve(promiseNodeResolve ...args)
 	orig.then (path) ->
 		path = normalizePath path
 		return path
-
 promiseNodeResolve = (...args) ->
 	# A wrapper where we make sure that we have our async loaded config
 	if not builtins?
@@ -124,6 +120,7 @@ rawNodeResolve = (name, parent='') ->
 		return resolvePath joinPath(dir, name)
 	resolveNodeModule name, dir
 
+# TODO: Should probably hook more nicely
 oldNormalize = System.normalize
 System.normalize = (path, parent) ->
 	parent = parent?split("!")[0]
