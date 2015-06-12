@@ -170,11 +170,15 @@
   };
   oldNormalize = System.normalize;
   System.normalize = function(path, parent){
-    var parts;
-    parent = parent != null ? parent.split("!")[0] : void 8;
+    var parts, plugins;
     parts = path.split('!');
-    return nodeResolve(parts[0], parent).then(function(normed){
-      return [normed].concat(parts.slice(1)).join("!");
+    path = parts[0], plugins = slice$.call(parts, 1);
+    if (System.map && path in System.map) {
+      path = System.map[path];
+    }
+    parent = parent != null ? parent.split("!")[0] : void 8;
+    return nodeResolve(path, parent).then(function(normed){
+      return [normed].concat(plugins).join("!");
     });
   };
 }).call(this);

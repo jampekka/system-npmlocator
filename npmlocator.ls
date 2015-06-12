@@ -123,10 +123,15 @@ rawNodeResolve = (name, parent='') ->
 # TODO: Should probably hook more nicely
 oldNormalize = System.normalize
 System.normalize = (path, parent) ->
-	parent = parent?split("!")[0]
 	parts = path.split '!'
-	nodeResolve parts[0], parent
+	[path, ...plugins] = parts
+	# TODO: Should extend the existing normalization
+	# instead of re-implementing here.
+	if System.map and path of System.map
+		path = System.map[path]
+	parent = parent?split("!")[0]
+	nodeResolve path, parent
 	.then (normed) ->
-		[normed].concat(parts.slice(1)).join("!")
+		[normed].concat(plugins).join("!")
 
 
