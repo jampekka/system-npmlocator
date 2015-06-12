@@ -51,6 +51,7 @@ resolvePath = (path) ->
 resolveNodeModule = (name, path='') ->
 	resolvePackage joinPath path, 'node_modules', name
 	.catch ->
+		# TODO: Probably breaks with URLs
 		parts = path.split('/')
 		parts.pop()
 		while parts[*-1] == 'node_modules'
@@ -58,28 +59,67 @@ resolveNodeModule = (name, path='') ->
 		if parts.length == 0
 			throw "Node module '#{name}' at '#{path}' not found"
 		resolveNodeModule name, joinPath ...parts
+parseUrl = (url) ->
+	parser = document.createElement 'a'
+	parser.href = url
+	return parser
 
-dirname = (path) ->
+parentPath = (path) ->
 	if not path
-		return ''
-	parts = path.split('/')
-	return parts.slice(0, -1).join('/')
+		return '.'
+	parsed = parseUrl path
+	pathname = parsed.pathname
+
+	parts = pathname.split('/')
+	parts.pop()
+	parsed.pathname = parts.join '/'
+	return parsed.href
 
 normalizePath = (path) ->
 	# TODO: Handle ..
-	parts = path.split '/'
+	parsed = parseUrl path
+	pathname = parsed.pathname ? ''
+	parts = parsed.pathname.split '/'
 	root = parts.shift()
 	parts = parts.filter (p) -> p not in ['', '.']
 	parts.unshift root
-	return parts.join '/'
+	parsed.pathname = parts.join '/'
+	return parsed.href
 
 joinPath = (...parts) ->
 	parts = parts.filter (p) -> p not in ['', '.']
 	return parts.join '/'
 
+builtins = void
+myPath = parentPath document.getElementsByTagName('script')[*-1].src
+builtinsPath = joinPath myPath, 'node_modules/browser-builtins'
+builtinsPromise = fetchUrl(joinPath(builtinsPath, 'package.json'))
+	.then (data) ->
+		conf = JSON.parse data
+		builtins := conf.browser
+	.then -> System.import("buffer")
+	.then (buffer) ->
+		window.Buffer = buffer.Buffer
+
 # See http://nodejs.org/docs/v0.4.8/api/all.html#all_Together...
-nodeResolve = (name, parent='') ->
-	dir = dirname normalizePath parent
+nodeResolve = (...args) ->
+	orig = Promise.resolve(promiseNodeResolve ...args)
+	orig.then (path) ->
+		path = normalizePath path
+		return path
+
+promiseNodeResolve = (...args) ->
+	# A wrapper where we make sure that we have our async loaded config
+	if not builtins?
+		return builtinsPromise.then ->
+			doNodeResolve ...args
+	return doNodeResolve ...args
+doNodeResolve = (name, parent) ->
+	if name of builtins
+		return rawNodeResolve builtins[name], joinPath(builtinsPath, 'dummy')
+	return rawNodeResolve name, parent
+rawNodeResolve = (name, parent='') ->
+	dir = parentPath normalizePath parent
 	if isFilePath name
 		return resolvePath joinPath(dir, name)
 	resolveNodeModule name, dir
