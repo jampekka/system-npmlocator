@@ -39,7 +39,8 @@ System.import('jquery').then(function($) {
         $("body").text("Hello from jQuery via npm!");
     });
 });
-</script>```
+</script>
+```
 
 And open it in a browser, eg:
     
