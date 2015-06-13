@@ -134,6 +134,5 @@ System.normalize = (path, parent) ->
 	nodeResolve path, parent
 	.then (normed) ->
 		result = [normed].concat(plugins).join("!")
-		console.log "Resolved", oargs, "to", result
 		return result
 

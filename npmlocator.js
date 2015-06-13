@@ -181,7 +181,6 @@
     return nodeResolve(path, parent).then(function(normed){
       var result;
       result = [normed].concat(plugins).join("!");
-      console.log("Resolved", oargs, "to", result);
       return result;
     });
   };
