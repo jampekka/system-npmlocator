@@ -8,7 +8,7 @@
     if (name.substring(0, 2) === './') {
       return true;
     }
-    if (name.substring(0, 2) === '../') {
+    if (name.substring(0, 3) === '../') {
       return true;
     }
     return false;
@@ -170,7 +170,8 @@
   };
   oldNormalize = System.normalize;
   System.normalize = function(path, parent){
-    var parts, plugins;
+    var oargs, parts, plugins;
+    oargs = arguments;
     parts = path.split('!');
     path = parts[0], plugins = slice$.call(parts, 1);
     if (System.map && path in System.map) {
@@ -178,7 +179,10 @@
     }
     parent = parent != null ? parent.split("!")[0] : void 8;
     return nodeResolve(path, parent).then(function(normed){
-      return [normed].concat(plugins).join("!");
+      var result;
+      result = [normed].concat(plugins).join("!");
+      console.log("Resolved", oargs, "to", result);
+      return result;
     });
   };
 }).call(this);

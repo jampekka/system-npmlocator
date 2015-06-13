@@ -1,7 +1,7 @@
 isFilePath = (name) ->
 	return true if name[0] == '/'
 	return true if name.substring(0, 2) == './'
-	return true if name.substring(0, 2) == '../'
+	return true if name.substring(0, 3) == '../'
 	return false
 
 fetchUrl = (url) -> new Promise (accept, reject) ->
@@ -123,6 +123,7 @@ rawNodeResolve = (name, parent='') ->
 # TODO: Should probably hook more nicely
 oldNormalize = System.normalize
 System.normalize = (path, parent) ->
+	oargs = arguments
 	parts = path.split '!'
 	[path, ...plugins] = parts
 	# TODO: Should extend the existing normalization
@@ -132,6 +133,7 @@ System.normalize = (path, parent) ->
 	parent = parent?split("!")[0]
 	nodeResolve path, parent
 	.then (normed) ->
-		[normed].concat(plugins).join("!")
-
+		result = [normed].concat(plugins).join("!")
+		console.log "Resolved", oargs, "to", result
+		return result
 
