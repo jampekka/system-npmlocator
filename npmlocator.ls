@@ -69,6 +69,9 @@ parentPath = (path) ->
 	parts = pathname.split('/')
 	parts.pop()
 	parsed.pathname = parts.join '/'
+
+	parsed.search = ''
+	parsed.hash = ''
 	return parsed.href
 
 normalizePath = (path) ->
