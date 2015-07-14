@@ -147,6 +147,8 @@ parentPath = (path) ->
 joinPath = (base, ...parts) ->
 	base = new URL base
 	parts = parts.filter (p) -> p not in ['', '.']
+	if base.pathname[*-1] == '/'
+		base.pathname = base.pathname.slice(0, -1)
 	parts.unshift base.pathname
 	base.pathname = parts.join '/'
 	base.pathname = base.pathname.normalize()

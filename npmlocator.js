@@ -164,12 +164,15 @@
     return path;
   };
   joinPath = function(base){
-    var parts;
+    var parts, ref$;
     parts = slice$.call(arguments, 1);
     base = new URL(base);
     parts = parts.filter(function(p){
       return p !== '' && p !== '.';
     });
+    if ((ref$ = base.pathname)[ref$.length - 1] === '/') {
+      base.pathname = base.pathname.slice(0, -1);
+    }
     parts.unshift(base.pathname);
     base.pathname = parts.join('/');
     base.pathname = base.pathname.normalize();
