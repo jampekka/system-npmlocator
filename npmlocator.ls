@@ -190,9 +190,17 @@ rawNodeResolve = (name, parent) ->
 		return resolvePath joinPath(dir, name)
 	resolveNodeModule name, dir
 
+memoize = (f) ->
+	cache = {}
+	(...args) ->
+		key = JSON.stringify args
+		if key of cache
+			return cache[key]
+		return cache[key] = f ...args
+
 # TODO: Should probably hook more nicely
 oldNormalize = System.normalize
-System.normalize = (path, parent) ->
+normalize = memoize (path, parent) ->
 	oargs = arguments
 	parts = path.split '!'
 	[path, ...plugins] = parts
@@ -205,4 +213,4 @@ System.normalize = (path, parent) ->
 	.then (normed) ->
 		result = [normed].concat(plugins).join("!")
 		return result
-
+System.normalize = (path, parent) -> normalize path, parent
