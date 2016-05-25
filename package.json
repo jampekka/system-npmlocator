@@ -1,14 +1,14 @@
 {
   "name": "system-npmlocator",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Nodejs style dependency resolving for SystemJS",
   "main": "npmlocator.js",
   "devDependencies": {
-    "LiveScript": "^1.3.1"
+    "livescript": "^1.5.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "lsc -c npmlocator.ls"
+    "build": "lsc -m linked -c npmlocator.ls"
   },
   "author": "Jami Pekkanen <jami.pekkanen@helsinki.fi>",
   "license": "Public domain",

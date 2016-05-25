@@ -1,101 +1,16 @@
-``
-  var isWorker = typeof window == 'undefined' && typeof self != 'undefined' && typeof importScripts != 'undefined';
-  var isBrowser = typeof window != 'undefined' && typeof document != 'undefined';
-  var isWindows = typeof process != 'undefined' && !!process.platform.match(/^win/);
-  var fetchTextFromURL;
-  if (typeof XMLHttpRequest != 'undefined') {
-    fetchTextFromURL = function(url, fulfill, reject) {
-      // percent encode just '#' in urls
-      // according to https://github.com/jorendorff/js-loaders/blob/master/browser-loader.js#L238
-      // we should encode everything, but it breaks for servers that don't expect it
-      // like in (https://github.com/systemjs/systemjs/issues/168)
-      if (isBrowser)
-        url = url.replace(/#/g, '%23');
-
-      var xhr = new XMLHttpRequest();
-      var sameDomain = true;
-      var doTimeout = false;
-      if (!('withCredentials' in xhr)) {
-        // check if same domain
-        var domainCheck = /^(\w+:)?\/\/([^\/]+)/.exec(url);
-        if (domainCheck) {
-          sameDomain = domainCheck[2] === window.location.host;
-          if (domainCheck[1])
-            sameDomain &= domainCheck[1] === window.location.protocol;
-        }
-      }
-      if (!sameDomain && typeof XDomainRequest != 'undefined') {
-        xhr = new XDomainRequest();
-        xhr.onload = load;
-        xhr.onerror = error;
-        xhr.ontimeout = error;
-        xhr.onprogress = function() {};
-        xhr.timeout = 0;
-        doTimeout = true;
-      }
-      function load() {
-        fulfill(xhr.responseText);
-      }
-      function error() {
-        reject(xhr.statusText + ': ' + url || 'XHR error');
-      }
-
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200 || (xhr.status == 0 && xhr.responseText)) {
-            load();
-          } else {
-            error();
-          }
-        }
-      };
-      xhr.open("GET", url, true);
-
-      if (doTimeout)
-        setTimeout(function() {
-          xhr.send();
-        }, 0);
-
-      xhr.send(null);
-    };
-  }
-  else if (typeof require != 'undefined') {
-    var fs;
-    fetchTextFromURL = function(url, fulfill, reject) {
-      if (url.substr(0, 8) != 'file:///')
-        throw 'Only file URLs of the form file:/// allowed running in Node.';
-      fs = fs || require('fs');
-      if (isWindows)
-        url = url.replace(/\//g, '\\').substr(8);
-      else
-        url = url.substr(7);
-      return fs.readFile(url, function(err, data) {
-        if (err)
-          return reject(err);
-        else {
-          // Strip Byte Order Mark out if it's the leading char
-          var dataString = data + '';
-          if (dataString[0] === '\ufeff')
-            dataString = dataString.substr(1);
-
-          fulfill(dataString);
-        }
-      });
-    };
-  }
-  else {
-    throw new TypeError('No environment fetch API available.');
-  }
-``
-
 isFilePath = (name) ->
 	return true if name[0] == '/'
 	return true if name.substring(0, 2) == './'
 	return true if name.substring(0, 3) == '../'
 	return false
 
-fetchUrl = (url, method='GET') -> new Promise (accept, reject) ->
-	return fetchTextFromURL url.toString(), accept, reject
+#fetchUrl = (url, method='GET') -> new Promise (accept, reject) ->
+#	return fetchTextFromURL url.toString(), accept, reject
+
+fetchUrl = (url) ->
+	System.fetch do
+		address: url.toString()
+		metadata: {}
 checkUrl = (url) -> fetchUrl url, 'HEAD'
 
 resolvePackage = (pkg) ->
@@ -145,7 +60,7 @@ parentPath = (path) ->
 	return path
 
 joinPath = (base, ...parts) ->
-	base = new URL base
+	base = new URL(base.toString!)
 	parts = parts.filter (p) -> p not in ['', '.']
 	if base.pathname[*-1] == '/'
 		base.pathname = base.pathname.slice(0, -1)
@@ -155,7 +70,11 @@ joinPath = (base, ...parts) ->
 	return base
 
 builtins = void
-myPath = parentPath document.getElementsByTagName('script')[*-1].src
+if document?
+	myPath = parentPath document.getElementsByTagName('script')[*-1].src
+else
+	myPath = parentPath "file://" + __filename
+
 builtinsPath = joinPath myPath, 'node_modules/browser-builtins'
 builtinsPromise = fetchUrl(joinPath(builtinsPath, 'package.json'))
 	.then (data) ->
@@ -163,7 +82,8 @@ builtinsPromise = fetchUrl(joinPath(builtinsPath, 'package.json'))
 		builtins := conf.browser
 	.then -> System.import("buffer")
 	.then (buffer) ->
-		window.Buffer = buffer.Buffer
+		if window?
+			window.Buffer = buffer.Buffer
 
 
 # See http://nodejs.org/docs/v0.4.8/api/all.html#all_Together...
@@ -171,6 +91,7 @@ nodeResolve = (...args) ->
 	orig = Promise.resolve(promiseNodeResolve ...args)
 	orig.then (path) ->
 		return path
+
 promiseNodeResolve = (...args) ->
 	# A wrapper where we make sure that we have our async loaded config
 	if not builtins?
@@ -198,19 +119,32 @@ memoize = (f) ->
 			return cache[key]
 		return cache[key] = f ...args
 
-# TODO: Should probably hook more nicely
-oldNormalize = System.normalize
-normalize = memoize (path, parent) ->
-	oargs = arguments
-	parts = path.split '!'
-	[path, ...plugins] = parts
-	# TODO: Should extend the existing normalization
-	# instead of re-implementing here.
-	if System.map and path of System.map
-		path = System.map[path]
-	parent = parent?split("!")[0]
-	nodeResolve path, parent
-	.then (normed) ->
-		result = [normed].concat(plugins).join("!")
-		return result
-System.normalize = (path, parent) -> normalize path, parent
+absURLRegEx = /^[^\/]+:\/\//
+
+monkeypatch = (System) ->
+	oldNormalize = System.normalize
+	resolver = memoize nodeResolve
+	normalize = (path, parent, isPlugin) ->
+		if path.match absURLRegEx or path[0] == '@'
+			return Promise.resolve(path)
+		parts = path.split '!'
+		[path, ...plugins] = parts
+		# TODO: Should extend the existing normalization
+		# instead of re-implementing here.
+		if @map and path of @map
+			path = @map[path]
+		parent = parent?split("!")[0]
+		resolver path, parent
+		.then (normed) ->
+			[normed].concat(plugins).join('!')
+	# TODO: Should probably hook more nicely
+	System.normalize = normalize
+
+	System.normalizeSync = (name) ->
+		# Seems to fix stuff, no idea why
+		return name
+
+if typeof module == 'object'
+	module.exports = monkeypatch
+else
+	monkeypatch(System)
